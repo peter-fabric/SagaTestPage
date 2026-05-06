@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+  <body>
+    <h1>My Plugin</h1>
+    <script>
+      // Signal to Saga that the plugin is ready
+      window.parent.postMessage({ action: 'loaded' }, '*');
+
+      // Listen for messages from Saga
+      window.addEventListener('message', function (event) {
+        if (event.data.type === 'init') {
+          console.log('Received story data:', event.data.payload);
+        }
+      });
+    </script>
+  </body>
+</html>
