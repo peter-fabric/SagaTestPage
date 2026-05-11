@@ -1,0 +1,262 @@
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Side Plugin Example</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        background: #1a1a2e;
+        color: #eaeaea;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        margin: 0;
+        padding: 16px;
+        min-height: 100vh;
+      }
+      h2 {
+        color: #fff;
+        margin: 0 0 16px 0;
+        font-size: 20px;
+        border-bottom: 1px solid #333;
+        padding-bottom: 8px;
+      }
+      .info-bar {
+        background: #16213e;
+        padding: 12px;
+        border-radius: 6px;
+        margin-bottom: 16px;
+        font-size: 14px;
+      }
+      .info-bar strong {
+        color: #4cc9f0;
+      }
+      .section {
+        background: #16213e;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+      .section h3 {
+        margin: 0 0 12px 0;
+        font-size: 16px;
+        color: #4cc9f0;
+      }
+      .columns {
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+      }
+      .column {
+        flex: 1;
+      }
+      label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 13px;
+        color: #aaa;
+      }
+      textarea {
+        background: #0f0f23;
+        border: 1px solid #333;
+        border-radius: 6px;
+        padding: 12px;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 12px;
+        color: #eaeaea;
+        width: 100%;
+        min-height: 120px;
+        resize: vertical;
+      }
+      textarea:focus {
+        outline: none;
+        border-color: #4361ee;
+      }
+      textarea[readonly] {
+        color: #7bed9f;
+      }
+      .btn-group {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+      button {
+        background: #4361ee;
+        color: #fff;
+        border: none;
+        padding: 10px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: background 0.2s;
+      }
+      button:hover {
+        background: #3a56d4;
+      }
+      button:active {
+        background: #2e47b3;
+      }
+      button.secondary {
+        background: #6c757d;
+      }
+      button.secondary:hover {
+        background: #5a6268;
+      }
+      button.full-width {
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Side Plugin Example</h2>
+
+    <div class="info-bar">
+      <strong>Status:</strong>
+      <span id="status">Plugin loaded and ready to communicate with parent window.</span>
+    </div>
+
+    <div class="section">
+      <h3>Navigation Events</h3>
+      <label for="navigation-log">Navigation history (most recent first):</label>
+      <textarea
+        id="navigation-log"
+        readonly
+        placeholder="Navigation events will appear here..."
+      ></textarea>
+    </div>
+
+    <div class="section">
+      <h3>Message Exchange</h3>
+      <div class="columns">
+        <div class="column">
+          <label for="parent-message">Received from parent:</label>
+          <textarea id="parent-message" readonly></textarea>
+        </div>
+        <div class="column">
+          <div class="btn-group">
+            <button type="button" class="insert-payload secondary" data-payload="printInfo">
+              printInfo
+            </button>
+            <button type="button" class="insert-payload secondary" data-payload="requestContext">
+              requestContext
+            </button>
+            <button type="button" class="insert-payload secondary" data-payload="updateFieldValue">
+              updateFieldValue
+            </button>
+          </div>
+          <button id="send-to-parent" class="full-width">Send to Parent</button>
+          <label for="to-parent-message" style="margin-top: 12px">Message to send:</label>
+          <textarea
+            id="to-parent-message"
+            placeholder="Enter JSON payload or use buttons above"
+          ></textarea>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Notify parent window that the plugin is loaded
+      window.addEventListener('DOMContentLoaded', function () {
+        window.parent.postMessage({ action: 'loaded' }, '*');
+        console.log('Side plugin example loaded and postMessage sent');
+      });
+
+      // Listen for messages from the parent
+      window.addEventListener('message', function (event) {
+        // Optionally, check event.origin for security
+        var parentMessageArea = document.getElementById('parent-message');
+        var navigationLogArea = document.getElementById('navigation-log');
+        var statusSpan = document.getElementById('status');
+        var data = event.data;
+
+        // Handle navigation events specially
+        if (data && data.type === 'navigation') {
+          var navInfo = data.payload;
+          var timestamp = new Date().toLocaleTimeString();
+          var logEntry = `[${timestamp}] ${navInfo.route.type || 'home'}${navInfo.route.id ? '/' + navInfo.route.id : ''}\n`;
+
+          if (navigationLogArea) {
+            navigationLogArea.value = logEntry + navigationLogArea.value;
+          }
+          if (statusSpan) {
+            statusSpan.textContent = `Current: ${navInfo.pathname}`;
+          }
+          // Continue to also show in message exchange
+        }
+
+        // Handle init event
+        if (data && data.type === 'init') {
+          if (statusSpan) {
+            statusSpan.textContent = `Initialized with pluginId: ${data.payload.pluginId}`;
+          }
+        }
+
+        // Handle fieldValueUpdated response
+        if (data && data.type === 'fieldValueUpdated') {
+          var p = data.payload;
+          if (statusSpan) {
+            statusSpan.textContent = p.success
+              ? `Field "${p.fieldId}" updated to "${p.value}"`
+              : `Update failed: ${p.error}`;
+          }
+        }
+
+        // Display all other messages in the parent message area
+        if (parentMessageArea) {
+          parentMessageArea.value = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+        }
+      });
+
+      // Send message to parent when button is clicked
+      document.addEventListener('DOMContentLoaded', function () {
+        var sendBtn = document.getElementById('send-to-parent');
+        var inputArea = document.getElementById('to-parent-message');
+        // Insert payload buttons
+        var insertBtns = document.querySelectorAll('.insert-payload');
+        if (insertBtns && inputArea) {
+          insertBtns.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              var type = btn.getAttribute('data-payload');
+              let example = '';
+              if (type === 'printInfo') {
+                example = JSON.stringify({ action: 'printInfo' }, null, 2);
+              } else if (type === 'requestContext') {
+                example = JSON.stringify({ action: 'requestContext' }, null, 2);
+              } else if (type === 'updateFieldValue') {
+                example = JSON.stringify(
+                  {
+                    action: 'updateFieldValue',
+                    payload: {
+                      fieldId: 'priority',
+                      value: 'high',
+                    },
+                  },
+                  null,
+                  2,
+                );
+              }
+              inputArea.value = example;
+            });
+          });
+        }
+        if (sendBtn && inputArea) {
+          sendBtn.addEventListener('click', function () {
+            let value = inputArea.value;
+            let payload;
+            try {
+              payload = JSON.parse(value);
+            } catch {
+              payload = value;
+            }
+            window.parent.postMessage(payload, '*');
+          });
+        }
+      });
+    </script>
+  </body>
+</html>
